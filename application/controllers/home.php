@@ -129,26 +129,44 @@ class Home extends CI_Controller {
 
     public function turn_301() {
 		
-		if((date('H:i')<"06:00" || date('H:i') > "22:00")){
+		if((date('H:i')<"06:00" || date('H:i') > "23:00")){
 		
 			echo json_encode($this->json);
 			exit;
 		}
 		
-        $sql = "SELECT * FROM `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 1";
+        //$sql = "SELECT * FROM `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 1";
+		$sql = "SELECT * FROM `turn_url` order by rand() limit 1";
         $query = $this->db->query($sql);
         $res = $query->row_array();
         if ($res != null) {
-            $id = $res['id'];
+            $this->update_url_data($res);
+        }else{
+			$sql = "truncate table turn_url ";
+			$this->db->query($sql);
+			$sql = "INSERT INTO `turn_url` (id,frompath,firsttime,turntime) SELECT id,frompath,firsttime,turntime from `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 0,2000";
+			$query = $this->db->query($sql);
+			$sql = "SELECT * FROM `turn_url` order by rand() limit 1";
+			$query = $this->db->query($sql);
+			$res = $query->row_array();
+			if ($res != null) {
+				$this->update_url_data($res);
+			}
+		}
+        
+        echo json_encode($this->json);
+    }
+    
+
+	private function update_url_data($res){
+			$id = $res['id'];
+			$sql = "delete from turn_url where id =?";
+			$this->db->query($sql, array($id));
             $c = (time() - strtotime($res['firsttime'])) / (60 * 60); //一小时
             $todaytimes = 1;
             if (date('Y-m-d', strtotime($res['turntime'])) == date('Y-m-d'))
                 $todaytimes = 'todaytimes+1';
-            if (strtotime($res['endtime']) < time()) {
-                $this->json['message'] = '开通时间已到期';
-            } elseif ($c <= 1 && ($res['nowunittimes']-$res['unittimes'] >= 0)) {
-                $this->json['message'] = '一小时只能跳转' . $res['unittimes'] . '次';
-            } elseif ($c > 1) {
+            if ($c > 1) {
 
                 $sql = "update urls set nowunittimes = 1,todaytimes =$todaytimes,sumtimes = sumtimes+1,firsttime=?,turntime=? where id=? limit 1";
                 $query = $this->db->query($sql, array(date('Y-m-d H:i:s'), date('Y-m-d H:i:s'), $id));
@@ -162,12 +180,8 @@ class Home extends CI_Controller {
                 $this->json['data'] = $res['frompath'];
                 $this->json['message'] = '跳转成功';
             }
-        }
-        
-        echo json_encode($this->json);
-    }
-    
-    public function admin(){
+	}
+	public function admin(){
         $this->load->view('admin');
     }
 

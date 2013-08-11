@@ -127,71 +127,84 @@ class Home extends CI_Controller {
         redirect($siteurl);
     }
 
-    public function turn_301() {
-		
-		if((date('H:i')<"06:00" || date('H:i') > "22:00")){
-		
-			echo json_encode($this->json);
-			exit;
-		}
-		
-        //$sql = "SELECT * FROM `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 1";
-		$sql = "SELECT * FROM `turn_url` order by rand() limit 1";
+    private function set_temp_file($file) {
+        $sql = "SELECT id,frompath,firsttime,turntime from `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 0,200";
         $query = $this->db->query($sql);
-        $res = $query->row_array();
-        if ($res != null) {
+        $res = $query->result_array();
+        if (count($res) > 0) {
+            $fn = fopen($file, 'w+');
+            $resstr = serialize($res);
+            return file_put_contents($file, $resstr);
+        }
+        return -1;
+    }
+
+    private function get_temp_file($file) {
+        $inputstr = @file_get_contents($file);
+        if ($inputstr !== false) {
+            $input = unserialize($inputstr);
+            $rand_keys = array_rand($input);
+            if ($rand_keys !== null) {
+                $res = $input[$rand_keys];
+                unset($input[$rand_keys]);
+                $inputstr = serialize($input);
+                file_put_contents($file, $inputstr);
+                return $res;
+            }
+        }
+        return array();
+    }
+
+    public function turn_301() {
+
+        if ((date('H:i') < "06:00" || date('H:i') > "22:00")) {
+
+            echo json_encode($this->json);
+            exit;
+        }
+
+        //$sql = "SELECT * FROM `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 1";
+        $file = "turn_url_cache.txt";
+        $res = $this->get_temp_file($file);
+        if (count($res) > 0) {
             $this->update_url_data($res);
-        }else{
-			session_start();
-			$now = time();
-			$ago = isset($_SESSION['time']) ? $_SESSION['time'] : 0;
-			if($now-$ago > 20){
-				$_SESSION['time'] = $now;
-				$sql = "truncate table turn_url ";
-				$res = $this->db->query($sql);
-				if($res){
-					$sql = "INSERT INTO `turn_url` (id,frompath,firsttime,turntime) SELECT id,frompath,firsttime,turntime from `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 0,200";
-					$query = $this->db->query($sql);
-					$sql = "SELECT * FROM `turn_url` order by rand() limit 1";
-					$query = $this->db->query($sql);
-					$res = $query->row_array();
-					if ($res != null) {
-						$this->update_url_data($res);
-					}
-				}
-			}
-		}
-        
+        } else {
+            $return = $this->set_temp_file($file);
+            if ($return > 0) {
+                $res = $this->get_temp_file($file);
+                $this->update_url_data($res);
+            }
+        }
         echo json_encode($this->json);
     }
-    
 
-	private function update_url_data($res){
-			$id = $res['id'];
-			$sql = "delete from turn_url where id =?";
-			$this->db->query($sql, array($id));
-            $c = (time() - strtotime($res['firsttime'])) / (60 * 60); //一小时
-            $todaytimes = 1;
-            if (date('Y-m-d', strtotime($res['turntime'])) == date('Y-m-d'))
-                $todaytimes = 'todaytimes+1';
-            if ($c > 1) {
+    private function update_url_data($res) {
+        $id = isset($res['id']) ? $res['id'] : 0;
+        if ($id < 1)
+            return;
+        //$sql = "delete from turn_url where id =?";
+        //$this->db->query($sql, array($id));
+        $c = (time() - strtotime($res['firsttime'])) / (60 * 60); //一小时
+        $todaytimes = 1;
+        if (date('Y-m-d', strtotime($res['turntime'])) == date('Y-m-d'))
+            $todaytimes = 'todaytimes+1';
+        if ($c > 1) {
 
-                $sql = "update urls set nowunittimes = 1,todaytimes =$todaytimes,sumtimes = sumtimes+1,firsttime=?,turntime=? where id=? limit 1";
-                $query = $this->db->query($sql, array(date('Y-m-d H:i:s'), date('Y-m-d H:i:s'), $id));
-                $this->json['success'] = true;
-                $this->json['data'] = $res['frompath'];
-                $this->json['message'] = '跳转成功';
-            } else {
-                $sql = "update urls set nowunittimes = nowunittimes+1,todaytimes = $todaytimes,sumtimes = sumtimes+1,turntime=? where id=? limit 1";
-                $query = $this->db->query($sql, array(date('Y-m-d H:i:s'), $id));
-                $this->json['success'] = true;
-                $this->json['data'] = $res['frompath'];
-                $this->json['message'] = '跳转成功';
-            }
-	}
+            $sql = "update urls set nowunittimes = 1,todaytimes =$todaytimes,sumtimes = sumtimes+1,firsttime=?,turntime=? where id=? limit 1";
+            $query = $this->db->query($sql, array(date('Y-m-d H:i:s'), date('Y-m-d H:i:s'), $id));
+            $this->json['success'] = true;
+            $this->json['data'] = $res['frompath'];
+            $this->json['message'] = '跳转成功';
+        } else {
+            $sql = "update urls set nowunittimes = nowunittimes+1,todaytimes = $todaytimes,sumtimes = sumtimes+1,turntime=? where id=? limit 1";
+            $query = $this->db->query($sql, array(date('Y-m-d H:i:s'), $id));
+            $this->json['success'] = true;
+            $this->json['data'] = $res['frompath'];
+            $this->json['message'] = '跳转成功';
+        }
+    }
 
-
-	public function admin(){
+    public function admin() {
         $this->load->view('admin');
     }
 

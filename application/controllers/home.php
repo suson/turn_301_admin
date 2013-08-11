@@ -129,7 +129,7 @@ class Home extends CI_Controller {
 
     public function turn_301() {
 		
-		if((date('H:i')<"06:00" || date('H:i') > "23:00")){
+		if((date('H:i')<"06:00" || date('H:i') > "22:00")){
 		
 			echo json_encode($this->json);
 			exit;
@@ -181,6 +181,8 @@ class Home extends CI_Controller {
                 $this->json['message'] = '跳转成功';
             }
 	}
+
+
 	public function admin(){
         $this->load->view('admin');
     }

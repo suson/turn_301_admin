@@ -23,7 +23,7 @@ CREATE TABLE `turn_url` (
   `frompath` char(255) NOT NULL DEFAULT '',
   `firsttime` datetime NOT NULL,
   `turntime` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Records of turn_url

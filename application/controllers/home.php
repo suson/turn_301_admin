@@ -142,15 +142,23 @@ class Home extends CI_Controller {
         if ($res != null) {
             $this->update_url_data($res);
         }else{
-			$sql = "truncate table turn_url ";
-			$this->db->query($sql);
-			$sql = "INSERT INTO `turn_url` (id,frompath,firsttime,turntime) SELECT id,frompath,firsttime,turntime from `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 0,2000";
-			$query = $this->db->query($sql);
-			$sql = "SELECT * FROM `turn_url` order by rand() limit 1";
-			$query = $this->db->query($sql);
-			$res = $query->row_array();
-			if ($res != null) {
-				$this->update_url_data($res);
+			session_start();
+			$now = time();
+			$ago = isset($_SESSION['time']) ? $_SESSION['time'] : 0;
+			if($now-$ago > 20){
+				$_SESSION['time'] = $now;
+				$sql = "truncate table turn_url ";
+				$res = $this->db->query($sql);
+				if($res){
+					$sql = "INSERT INTO `turn_url` (id,frompath,firsttime,turntime) SELECT id,frompath,firsttime,turntime from `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 0,200";
+					$query = $this->db->query($sql);
+					$sql = "SELECT * FROM `turn_url` order by rand() limit 1";
+					$query = $this->db->query($sql);
+					$res = $query->row_array();
+					if ($res != null) {
+						$this->update_url_data($res);
+					}
+				}
 			}
 		}
         

@@ -128,9 +128,10 @@ class Home extends CI_Controller {
     }
 
     private function set_temp_file($file) {
-        $sql = "SELECT id,frompath,firsttime,turntime from `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 0,200";
+        $sql = "SELECT id,frompath,firsttime,turntime from `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) limit 0,2000";
         $query = $this->db->query($sql);
         $res = $query->result_array();
+		//return 0;
         if (count($res) > 0) {
             $fn = fopen($file, 'w+');
             $resstr = serialize($res);
@@ -165,12 +166,13 @@ class Home extends CI_Controller {
 
         //$sql = "SELECT * FROM `urls` where status=1101 and UNIX_TIMESTAMP(endtime)>UNIX_TIMESTAMP(now()) and (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)>3600 or (UNIX_TIMESTAMP(now())-UNIX_TIMESTAMP(firsttime)<3600 and unittimes-nowunittimes>0)) order by rand() limit 1";
         $file = "turn_url_cache.txt";
+		$this->set_temp_file($file); exit;
         $res = $this->get_temp_file($file);
         if (count($res) > 0) {
             $this->update_url_data($res);
         } else {
             $return = $this->set_temp_file($file);
-            if ($return > 0) {
+            if ($return > -1) {
                 $res = $this->get_temp_file($file);
                 $this->update_url_data($res);
             }
